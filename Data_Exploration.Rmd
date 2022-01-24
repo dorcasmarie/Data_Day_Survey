@@ -1,0 +1,136 @@
+---
+title: "Data Day Survey 2021"
+author: "Dorcas Washington"
+date: "12/7/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, echo=FALSE, warning=FALSE}
+library(readxl)
+#read in data
+dat <- readxl::read_xlsx('Data Day survey responses.xlsx')
+
+#relabeling the years
+dat$yr2016 <- dat[,5]
+dat$yr2017 <- dat[,6]
+dat$yr2018 <- dat[,7]
+dat$yr2019 <- dat[,8]
+dat$yr2020 <- dat[,9]
+dat$yr2021 <- dat[,10]
+
+library(tidyverse)
+library(dplyr)
+
+#seperating the data set by attendence (attended or not)
+dat2 <- dat %>% summarise(Attended2016 = sum(dat$yr2016=="Checked"), 
+                          Attended2017 = sum(dat$yr2017=="Checked"),
+                          Attended2018 = sum(dat$yr2018=="Checked"),
+                          Attended2019 = sum(dat$yr2019=="Checked"),
+                          Attended2020 = sum(dat$yr2020=="Checked"),
+                          Attended2021 = sum(dat$yr2021=="Checked"))
+
+# creating a frequency table by counts for those who attended
+dat2_long <- pivot_longer(dat2, cols = starts_with("A"), names_to = "year", values_to="count" )
+
+dat3 <- dat %>% summarise(NotAttended2016 = sum(dat$yr2016=="Unchecked"), 
+                          NotAttended2017 = sum(dat$yr2017=="Unchecked"),
+                          NotAttended2018 = sum(dat$yr2018=="Unchecked"),
+                          NotAttended2019 = sum(dat$yr2019=="Unchecked"),
+                         NotAttended2020 = sum(dat$yr2020=="Unchecked"),
+                        NotAttended2021 = sum(dat$yr2021=="Unchecked"))
+
+
+#frequency table of those who didn't attend (counts)
+dat3_long <- pivot_longer(dat3, cols = starts_with("N"), names_to = "year", values_to="count")
+
+library(ggplot2)
+
+#frequency plot of those who attended
+dat2_long$year<- c(2016:2021) 
+ggplot(dat2_long) + geom_col(aes(x=year, y=count)) + theme_classic()
+
+
+
+```
+```{r, echo=FALSE, warning=FALSE}
+
+# I'm converting all the NA's/Bot applicable to NA's in R
+df <- sapply(dat, as.character)
+convert_to_na <- function(x){
+  val <- ifelse(x=="Not applicable", NA, x)
+  as.factor(val)
+}
+
+# Converting list data into a data frame and using the above function to relabel 
+# NA values
+
+dat_new <- as.data.frame(lapply(df, convert_to_na))
+
+
+# ggplot(dat_new, aes(x=`My.office.department.encourages.the.use.of.best.practices.in.data.use.and.management.`)) + geom_bar()
+# 
+
+
+# ggplot(dat, aes(x=`My office/department provides the resources or access to resources that I need to use best practices for data use and management.`)) + geom_bar()
+
+
+
+```
+
+
+```{r, echo=FALSE, warning=FALSE}
+library(likert)
+
+
+
+p1 <- dat_new[,12:24] %>% gather(name, value) %>% count(name, value)
+p2 <- pivot_wider(p1, names_from = value, values_from = n)
+p3 <- rowSums(cbind(p2$`Neutral or N/A`, p2$Neutral, p2$`NA`), na.rm = TRUE)
+
+p2$`Neutral or N/A` <- p3
+
+p2 <- p2[ ,-c(5,8)]
+#rowSums(p2[,-1], na.rm = TRUE)
+p4 <- likert::likert(Question ~., p2)
+
+
+library(reshape2)
+question_names <- paste0('Q',c(1:13))
+p4$results$name <-question_names
+group_order <- c('Strongly Agree', 'Agree', "Neutral or N/A", "Disagree", "Strongly Disagree")
+results <- melt(p4$results, id.vars='name')
+
+ymin <- 0
+text.size <- 3
+
+library(RColorBrewer)
+
+ggplot(data = results, aes(x=name, y=value)) +  geom_bar(stat='identity', aes(fill=variable)) + labs(
+        x = "Question",
+        y = "Number of individuals")
+```
+Questions
+Q1 "Attending.Data.Day.has.improved.the.way.I.work.with.students."                                                                    
+Q2 "Data.Day.has.improved.my.network.within.the.UC.data.community."                                                                   
+Q3 "Data.Day.taught.me.about.UC.resources.that.I.was.unaware.of.prior.to.the.event."                                                  
+Q4 "I.have.made.changes.in.my.own.work.with.data.to.reflect.the.best.practices.learned.during.Data.Day."                              
+Q5 "I.have.made.recommendations.or.suggestions.related.to.data.practices.to.colleagues.because.of.concepts.I.learned.during.Data.Day."
+
+Q6 "I.have.made.recommendations.or.suggestions.related.to.data.practices.to.students.because.of.concepts.I.learned.during.Data.Day."  
+
+Q7 "Most.of.my.colleagues.are.aware.of.Data.Day."                                                                                     
+Q8 "Most.of.my.colleagues.have.attended.at.least.one.Data.Day.event.in.the.past."                                                     
+Q9 "My.office.department.encourages.the.use.of.best.practices.in.data.use.and.management."             
+
+Q10 "My.office.department.provides.the.resources.or.access.to.resources.that.I.need.to.use.best.practices.for.data.use.and.management."
+
+Q11 "Overall, I.have.learned.a.lot.about.best.data.practices.because.of.attending.Data.Day.events."                  
+
+Q12 "Please.name.the.resources.you.need.to.conduct.research.using.best.practices.that.the.University.is.not.providing." 
+
+Q13 "The.University.of.Cincinnati.provides.all.the.resources.I.need.to.conduct.research.using.best.practices."  
